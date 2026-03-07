@@ -1,23 +1,37 @@
 package org.example;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
 import java.io.*;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-public class SmtpServer {
+public class SmtpServer{
     // Use a custom port (e.g., 2525) to avoid needing special privileges.
-    private static final int PORT = 25;
+    //private static final int PORT = 25;
+    private static final int PORT = 2525;
+
+
+    public SmtpServer() throws IOException {
+    }
+
 
     public static void main(String[] args) {
-        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+        try {
+              ServerSocket serverSocket =
+                      new ServerSocket(PORT);
+
+
             System.out.println("SMTP Server started on port " + PORT);
             // Continuously accept new client connections
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("Connection from " + clientSocket.getInetAddress());
                 // Handle each connection in its own thread
+                //new Thread(new ClientHandler(clientSocket)).start();
                 new SmtpSession(clientSocket).start();
             }
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -131,6 +145,7 @@ class SmtpSession extends Thread {
         // puis d'une adresse email entre chevrons et rien d'autre.
         if (!arg.toUpperCase().matches("^FROM:\\s*<[^>]+>$")) {
             out.println("501 Syntax error in parameters or arguments");
+            out.println(arg.toUpperCase());
             return;
         }
         // Extraire l'adresse email en retirant "FROM:" et les chevrons.

@@ -3,10 +3,25 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
+
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+
 public class Pop3Server {
-    private static final int PORT = 1100; // Custom port to avoid conflicts
+    //private static final int PORT = 110; // Custom port to avoid conflicts
+    private static final int PORT = 995; // POP3 sécurisé
     private List<File> emails;
     private List<Boolean> deletionFlags = new ArrayList<>();
+
+
+    SSLServerSocketFactory factory =
+            (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+
+    SSLServerSocket serverSocket =
+            (SSLServerSocket) factory.createServerSocket(PORT);
+
+    public Pop3Server() throws IOException {
+    }
 
     public static void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -97,6 +112,25 @@ class Pop3Session extends Thread {
         }
     }
 
+    private void handleList() {
+        if (!authenticated) {
+            out.println("-ERR Authentication required");
+            return;
+    }
+        out.println("+OK " + emails.size() + " messages");
+        for (int i = 0; i < emails.size(); i++) {
+            out.println((i + 1) + " " + emails.get(i).length());
+        }
+        out.println(".");
+    }
+
+    private void handleStat() {
+        if (!authenticated) {
+            out.println("-ERR Authentication required");
+            return;
+    }
+    }
+
     private void handleUser(String arg) {
         File dir = new File("mailserver/" + arg);
         if (dir.exists() && dir.isDirectory()) {
@@ -114,43 +148,33 @@ class Pop3Session extends Thread {
             return;
         }
         // Pour simplifier, on suppose que "userDir" est le dossier de l'utilisateur déjà défini
-        authenticated = true;
-        // Chargez les fichiers du répertoire dans une ArrayList mutable
-        File[] files = userDir.listFiles();
-        if (files == null) {
+
+        if (UserAuth.authenticate(username, arg)) {
+
+            authenticated = true;
+
+            File[] files = userDir.listFiles();
+
             emails = new ArrayList<>();
-        } else {
-            emails = new ArrayList<>(Arrays.asList(files));
-        }
-        // Initialisez les flags de suppression : aucun email n'est marqué (false)
-        deletionFlags = new ArrayList<>();
-        for (int i = 0; i < emails.size(); i++) {
-            deletionFlags.add(false);
-        }
-        out.println("+OK Password accepted");
-    }
+            deletionFlags = new ArrayList<>();
+
+            if (files != null) {
+                for (File f : files) {
+                    if (f.isFile()) {
+                        emails.add(f);
+                        deletionFlags.add(false);
+                    }
+                }
 
 
+            }
 
-    private void handleStat() {
-        if (!authenticated) {
-            out.println("-ERR Authentication required");
-            return;
-        }
-        long size = emails.stream().mapToLong(File::length).sum();
-        out.println("+OK " + emails.size() + " " + size);
-    }
 
-    private void handleList() {
-        if (!authenticated) {
-            out.println("-ERR Authentication required");
-            return;
+            long size = emails.stream().mapToLong(File::length).sum();
+            out.println("+OK " + emails.size() + " " + size);
         }
-        out.println("+OK " + emails.size() + " messages");
-        for (int i = 0; i < emails.size(); i++) {
-            out.println((i + 1) + " " + emails.get(i).length());
-        }
-        out.println(".");
+
+
     }
 
     private void handleRetr(String arg) {
