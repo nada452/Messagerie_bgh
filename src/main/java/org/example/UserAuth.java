@@ -16,4 +16,8 @@ public class UserAuth {
     public static boolean authenticate(String username, String password){
         return users.containsKey(username) && users.get(username).equals(password);
     }
+
+    public static boolean userExists(String username) {
+        return username != null && users.containsKey(username);
+    }
 }

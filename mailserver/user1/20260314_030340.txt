@@ -1,0 +1,12 @@
+From: student@example.com
+To: user1@test.com
+Date: Sat, 14 Mar 2026 03:03:40 +0100
+Subject: Test Email
+
+From: student@example.com
+To: user1@test.com
+Subject: test1
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+Senario d'envoi smtp
