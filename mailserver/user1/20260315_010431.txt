@@ -1,0 +1,12 @@
+From: student@test.com
+To: user1@exemple.com
+Date: Sun, 15 Mar 2026 01:04:31 +0100
+Subject: Test Email
+
+From: student@test.com
+To: user1@exemple.com
+Subject: test multiple
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
