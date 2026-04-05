@@ -1,0 +1,6 @@
+From: belghini_nada@test.com
+To: student@test.com
+Date: Sat, 04 Apr 2026 02:39:48 +0100
+Subject: Test Email
+
+etest de int[C[C[C[C[C'integration de serveur d'autentification avec smtp

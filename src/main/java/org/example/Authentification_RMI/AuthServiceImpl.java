@@ -14,8 +14,15 @@ public class AuthServiceImpl extends UnicastRemoteObject implements Authservice 
     public AuthServiceImpl() throws RemoteException {
         super();
         users = new Properties();
+
+        // --- AJOUTE CECI ---
+        File f = new File(USER_FILE);
+        System.out.println(">>> Le serveur cherche les utilisateurs ici : " + f.getAbsolutePath());
+        // -------------------
+
         loadUsers();
     }
+
 
     // Charger les utilisateurs depuis le fichier XML
     private void loadUsers() {
@@ -23,12 +30,16 @@ public class AuthServiceImpl extends UnicastRemoteObject implements Authservice 
         if (f.exists()) {
             try (FileInputStream fis = new FileInputStream(f)) {
                 users.loadFromXML(fis);
-                System.out.println("Utilisateurs chargés : " + users.keySet());
+                // AJOUTE CECI pour voir qui est chargé :
+                System.out.println(">>> Fichier chargé. Utilisateurs connus : " + users.keySet());
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        } else {
+            System.out.println(">>> Aucun fichier users.xml trouvé. Démarrage à vide.");
         }
     }
+
 
     // Sauvegarder les utilisateurs dans le fichier XML
     private void saveUsers() {
@@ -69,7 +80,14 @@ public class AuthServiceImpl extends UnicastRemoteObject implements Authservice 
     }
 
     @Override
+
     public boolean userExists(String username) throws RemoteException {
-        return users.containsKey(username);
+        username=username.trim();
+        System.out.println("[DEBUG] Recherche de l'utilisateur : '" + username + "'");
+        System.out.println("[DEBUG] Longueur de la recherche : " + username.length());
+        System.out.println("[DEBUG] Contenu de la liste : " + users);
+
+        // Votre return habituel ici (ex: return listeUtilisateurs.contains(username);)
+        return users.containsKey((username));
     }
 }

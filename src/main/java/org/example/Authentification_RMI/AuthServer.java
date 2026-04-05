@@ -15,10 +15,10 @@ public class AuthServer {
             Authservice authService = new AuthServiceImpl();
 
             // 3. Lier le service au nom "AuthService"
-            registry.rebind("rmi://localhost/AuthService", authService);
+            registry.rebind("rmi://localhost/Authservice", authService);
 
             System.out.println("🟢 Serveur d'authentification RMI démarré sur le port 1099.");
-            System.out.println("   Service lié : rmi://localhost/AuthService");
+            System.out.println("   Service lié : rmi://localhost/Authservice");
 
         } catch (Exception e) {
             System.err.println("Erreur serveur RMI : " + e.getMessage());

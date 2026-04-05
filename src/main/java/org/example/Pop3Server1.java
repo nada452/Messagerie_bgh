@@ -1,8 +1,11 @@
 package org.example;
 
 
+import org.example.Authentification_RMI.Authservice;
+
 import java.io.*;
 import java.net.*;
+import java.rmi.registry.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -140,26 +143,54 @@ class Pop3Session implements Runnable {
         }
     }
 
+
+
     private void handlePass(String arg) {
         if (state != Pop3State.AUTHORIZATION || username == null) {
             out.println("-ERR Send USER first");
             return;
         }
-        if (!UserAuth.authenticate(username, arg)) {
-            // CORRECTION : message d'erreur manquant dans l'original
+
+        // nv auth by rmi
+        boolean isAuthValid = false;
+        try {
+            // 1. Se connecter au registre RMI sur le port 1099
+            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+
+            // 2. Chercher le service distant par son nom
+            Authservice authStub = (Authservice) registry.lookup("rmi://localhost/Authservice");
+
+            // 3. Appeler la méthode distante
+            isAuthValid = authStub.authenticate(username, arg);
+
+        } catch (Exception e) {
+            // Si le serveur RMI est éteint ou une erreur réseau survient
+            e.printStackTrace();
+            out.println("-ERR Internal Server Error (Auth Service Unavailable)");
+            return;
+        }
+        // --- FIN MODIFICATION RMI ---
+
+        if (!isAuthValid) {
             out.println("-ERR Invalid password");
-            username = null; // reset pour permettre un nouvel essai
+            username = null;
             return;
         }
 
-        // Authentification réussie : charger les emails
+        // Authentification réussie
         authenticated = true;
         state = Pop3State.TRANSACTION;
 
         emails = new ArrayList<>();
         deletionFlags = new ArrayList<>();
 
-        // Créer le répertoire si inexistant (première connexion)
+        // Initialiser userDir si ce n'est pas déjà fait (basé sur le username)
+        // J'ajoute cette sécurité au cas où userDir ne serait pas initialisé dans handleUser
+        if (userDir == null) {
+            String folderName = username.contains("@") ? username.split("@")[0] : username;
+            userDir = new File("mailserver/" + folderName);
+        }
+
         if (!userDir.exists()) userDir.mkdirs();
 
         File[] files = userDir.listFiles(File::isFile);
@@ -358,5 +389,13 @@ class Pop3Session implements Runnable {
             }
         }
         out.println("+OK POP3 server signing off");
+    }
+    private Authservice getAuthService() {
+        try {
+            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+            return (Authservice) registry.lookup("rmi://localhost/AuthService");
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

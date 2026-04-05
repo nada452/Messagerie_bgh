@@ -1,0 +1,6 @@
+From: user1@test.com
+To: student@test.cuom
+Date: Sat, 04 Apr 2026 02:26:17 +0100
+Subject: Test Email
+
+fhdshgjfhgsdjf

@@ -1,7 +1,10 @@
 package org.example;
 
+import org.example.Authentification_RMI.Authservice;
+
 import java.io.*;
 import java.net.*;
+import java.rmi.registry.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -39,7 +42,7 @@ class ImapSession implements Runnable {
     private ImapState state;
     private String username;
     private File userDir;
-    private List<File> emails;
+    private List<File> emails =new ArrayList<>();
     private boolean[] seenFlags; // Pour gérer les messages lus/non lus
     private String selectedMailbox;
 
@@ -157,44 +160,102 @@ class ImapSession implements Runnable {
     }
 
     private void handleLogin(String tag, String args) {
-        // Format: LOGIN username password
-        String[] parts = args.split(" ");
-        if (parts.length < 2) {
-            out.println(tag + " BAD Invalid arguments");
+        if (state != ImapState.NON_AUTHENTICATED) {
+            send(tag + " BAD Already logged in");
             return;
         }
 
-        String username = parts[0];
-        // Note: Dans une vraie implémentation, vérifier le mot de passe
+        // Format attendu : LOGIN user password
+        String[] parts = args.split(" ", 2);
+        if (parts.length < 2) {
+            send(tag + " BAD Invalid arguments");
+            return;
+        }
 
-        File dir = new File("mailserver/" + username);
-        if (dir.exists() && dir.isDirectory()) {
-            this.username = username;
-            this.userDir = dir;
-            loadEmails();
+        String user = parts[0];
+        String pass = parts[1];
+
+        // --- DEBUT INTEGRATION RMI ---
+        boolean isAuthValid = false;
+        try {
+            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+            Authservice authStub = (Authservice) registry.lookup("rmi://localhost/Authservice");
+            isAuthValid = authStub.authenticate(user, pass);
+        } catch (Exception e) {
+            e.printStackTrace();
+            send(tag + " NO Internal Server Error (RMI Unavailable)");
+            return;
+        }
+        // --- FIN INTEGRATION RMI ---
+
+        if (isAuthValid) {
+            this.username=user;
             state = ImapState.AUTHENTICATED;
-            out.println(tag + " OK LOGIN completed");
+
+            send(tag + " OK LOGIN completed");
         } else {
-            out.println(tag + " NO Invalid username or password");
+            send(tag + " NO LOGIN failed (Invalid credentials)");
         }
     }
 
-    private void handleSelect(String tag, String args) {
-        // Format: SELECT INBOX
-        if (!args.equalsIgnoreCase("INBOX")) {
-            out.println(tag + " NO Mailbox doesn't exist");
-            return;
+    private void handleSelect(String tag, String folderName) {
+        // 1. Sécurité : On entoure tout le code d'un try-catch
+        try {
+            if (state != ImapState.AUTHENTICATED && state != ImapState.SELECTED) {
+                send(tag + " NO Not authenticated");
+                return;
+            }
+
+            String folder = folderName.replace("\"", "");
+
+            if (folder.equalsIgnoreCase("INBOX")) {
+
+                // 2. Sécurité : Si currentUser est null, on arrête
+
+                if (username == null) {
+                    send(tag + " NO User session error");
+                    return;
+                }
+
+                // 3. Calcul du chemin
+
+                if (username.contains("@")) {
+                    username = username.split("@")[0];
+                }
+
+                File userDir = new File("mailserver/" + username);
+
+                // 4. Affichage Console pour DEBOGAGE (Regarde ta console Java !)
+                System.out.println("--- DEBUG SELECT ---");
+                System.out.println("User: " + username);
+                System.out.println("Chemin cherché: " + userDir.getAbsolutePath());
+                System.out.println("Existe ? " + userDir.exists());
+                System.out.println("--------------------");
+
+                if (userDir.exists() && userDir.isDirectory()) {
+                    state = ImapState.SELECTED;
+                    userDir = userDir;
+
+                    // 5. Chargement des emails avec sécurité
+                    loadEmails();
+
+                    // 6. Réponses IMAP
+                    send("* " + emails.size() + " EXISTS");
+                    send("* 0 RECENT");
+                    send("* FLAGS (\\Seen \\Deleted)");
+                    send(tag + " OK [READ-WRITE] SELECT completed");
+                } else {
+                    send(tag + " NO Folder not found");
+                }
+            } else {
+                send(tag + " NO Folder not supported");
+            }
+
+        } catch (Exception e) {
+            // Si une erreur inconnue arrive, on l'affiche et on prévient le client
+            e.printStackTrace();
+            send(tag + " NO Internal Server Error");
         }
-
-        this.selectedMailbox = args;
-        state = ImapState.SELECTED;
-
-        // Réponses requises pour SELECT
-        out.println("* " + emails.size() + " EXISTS");
-        out.println("* 0 RECENT");
-        out.println("* FLAGS (\\Seen \\Answered \\Flagged \\Deleted \\Draft)");
-        out.println("* OK [PERMANENTFLAGS (\\Seen \\Deleted)] Permanent flags");
-        out.println(tag + " OK [READ-WRITE] SELECT completed");
     }
 
     private void handleFetch(String tag, String args) {
@@ -308,15 +369,20 @@ class ImapSession implements Runnable {
     }
 
     private void loadEmails() {
+        // SOLUTION : On réinitialise la liste à chaque fois pour éviter le "null"
+        emails = new ArrayList<>();
+
+        if (userDir == null) return;
+
         File[] files = userDir.listFiles();
         if (files != null) {
-            emails = new ArrayList<>(Arrays.asList(files));
-            seenFlags = new boolean[emails.size()];
-            // Trier par date (du plus récent au plus ancien)
-            emails.sort((f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
-        } else {
-            emails = new ArrayList<>();
-            seenFlags = new boolean[0];
+            Arrays.sort(files);
+            for (File f : files) {
+                emails.add(f);
+            }
         }
+    }
+    private void send (String message){
+        System.out.println(message);
     }
 }

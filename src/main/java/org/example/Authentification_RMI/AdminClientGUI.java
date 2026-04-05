@@ -48,7 +48,7 @@ public class AdminClientGUI extends JFrame {
     private void connectToRMI() {
         try {
             Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-            authStub = (Authservice) registry.lookup("rmi://localhost/AuthService");
+            authStub = (Authservice) registry.lookup("rmi://localhost/Authservice");
             System.out.println("Connecté au serveur RMI.");
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Impossible de se connecter au serveur RMI: " + e.getMessage());

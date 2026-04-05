@@ -2,5 +2,7 @@
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
 <comment>Liste des utilisateurs</comment>
+<entry key="user1">123</entry>
 <entry key="belghini_nada">pwd</entry>
+<entry key="student">1234</entry>
 </properties>

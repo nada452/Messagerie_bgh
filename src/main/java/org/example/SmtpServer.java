@@ -1,10 +1,15 @@
 package org.example;
+import org.example.Authentification_RMI.Authservice;
+
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import java.io.*;
 import java.net.*;
+
+import java.rmi.registry.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+
 
 public class SmtpServer{
     // Use a custom port (e.g., 2525) to avoid needing special privileges.
@@ -140,27 +145,37 @@ class SmtpSession extends Thread {
     }
 
     private void handleMailFrom(String arg) {
-        // Vérifier que l'argument correspond exactement au format "FROM:<email>"
-        // L'expression régulière vérifie que la chaîne commence par "FROM:", suivie de zéro ou plusieurs espaces,
-        // puis d'une adresse email entre chevrons et rien d'autre.
-        if (!arg.toUpperCase().matches("^FROM:\\s*<[^>]+>$")) {
-            out.println("501 Syntax error in parameters or arguments");
-            out.println(arg.toUpperCase());
+        if (state != SmtpState.HELO_RECEIVED) {
+            send("503 Bad sequence of commands");
             return;
         }
-        // Extraire l'adresse email en retirant "FROM:" et les chevrons.
-        String potentialEmail = arg.substring(5).trim();  // Extrait ce qui suit "FROM:"
-        // Retirer les chevrons (< et >)
-        potentialEmail = potentialEmail.substring(1, potentialEmail.length() - 1).trim();
 
-        String email = extractEmail(potentialEmail);
-        if (email == null) {
-            out.println("501 Syntax error in parameters or arguments");
+        // 1. Extraire l'email de l'expéditeur
+        // Exemple: arg = "FROM:<user1@test.com>"
+        String emailSender = extractEmail(arg.substring(arg.indexOf(':') + 1));
+        String usernameSender = emailSender.split("@")[0]; // On garde juste "user1"
+
+        // 2. Vérification RMI : Est-ce que cet utilisateur existe ?
+        boolean userexists = false;
+        try {
+            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+            Authservice authStub = (Authservice) registry.lookup("rmi://localhost/Authservice");
+            userexists = authStub.userExists(usernameSender);
+        } catch (Exception e) {
+            send("451 Error: Auth Service unavailable");
             return;
         }
-        sender = email;
-        state = SmtpState.MAIL_FROM_SET;
-        out.println("250 OK");
+
+        // 3. Décision
+        if (!userexists) {
+            send("550 Error: Sender rejected (Unknown user)");
+
+        } else {
+            sender = emailSender;
+            state = SmtpState.MAIL_FROM_SET;
+            send("250 OK");
+        }
+        return;
     }
 
     private void handleRcptTo(String arg) {
@@ -226,6 +241,7 @@ class SmtpSession extends Thread {
     private String extractEmail(String input) {
         // Remove any surrounding angle brackets.
         input = input.replaceAll("[<>]", "");
+        input =input.trim();
         if (input.contains("@") && input.indexOf("@") > 0 && input.indexOf("@") < input.length() - 1) {
             return input;
         }
@@ -271,5 +287,9 @@ class SmtpSession extends Thread {
             }
         }
     }
+    private void send (String message){
+        out.println(message);
+    }
+
 }
 
